@@ -1,0 +1,42 @@
+{
+  "name": "agros-challenge",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "nodemon -w 'src/**/*' -e ts -x 'ts-node src/server.ts'",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "solidity",
+    "hardhat",
+    "typescript",
+    "web3"
+  ],
+  "author": "dimacros@hotmail.com",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dimacros/agros-challenge"
+  },
+  "dependencies": {
+    "@hokify/agenda": "^6.3.0",
+    "@prisma/client": "^4.16.2",
+    "fastify": "^4.19.2",
+    "web3": "^4.0.2"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^8.0.2",
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@openzeppelin/contracts-upgradeable": "^4.9.2",
+    "@openzeppelin/hardhat-upgrades": "^2.0.1",
+    "@tsconfig/node18": "^18.2.0",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.6.4",
+    "hardhat": "^2.17.0",
+    "nodemon": "^3.0.1",
+    "prisma": "^4.16.2",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.1.6"
+  }
+}

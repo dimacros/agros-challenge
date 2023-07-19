@@ -1,0 +1,17 @@
+version: "3"
+
+services:
+  app:
+    build: .
+    volumes:
+      - .:/usr/src/app
+    env_file:
+      - .env
+  nginx:
+    image: nginx:stable-alpine
+    volumes:
+      - ./nginx:/etc/nginx/templates
+    ports:
+      - "8080:80"
+    depends_on:
+      - app

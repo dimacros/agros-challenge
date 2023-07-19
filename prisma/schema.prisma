@@ -1,0 +1,39 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Producer {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  address String
+  privateKey String
+  producerInfo ProducerInfo?
+  associatedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProducerInfo {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  producerId String @unique @db.ObjectId
+  producer Producer @relation(fields: [producerId], references: [id])
+  isOrganic Boolean @default(false)
+  firstName String?
+  lastName String?
+  phoneNumber String?
+  documentType String?
+  documentNumber String?
+  countryIsoCode String?
+  cropPlotSize String?
+  cropType String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
