@@ -37,11 +37,12 @@ export class AgrosSalesProxy {
     async purchaseAssociateNFT() {
         const { wallet, agrosTokenSC, agrosSaleSC } = this;
         const { balanceOf } = agrosTokenSC.methods;
-        const { purchaseAssociatedNFT } = agrosSaleSC.methods;
+        const { ASSOCIATED_NFT_ID, balanceOf: nftCount, purchaseAssociatedNFT } = agrosSaleSC.methods;
 
+        const associateNftId = await ASSOCIATED_NFT_ID().call<bigint>();
         const tokens = await this.web3.eth.getBalance(wallet.address);
         const agrosTokens = await balanceOf(wallet.address).call<bigint>();
-
+        const ownNfts = await nftCount(wallet.address, associateNftId).call<boolean>();
         const nftPrice = utils.toBigInt(utils.toWei(8, 'ether'));
 
         if (tokens < 100000) {
@@ -52,6 +53,10 @@ export class AgrosSalesProxy {
             const amount = utils.fromWei(tokens, 'ether');
 
             throw new Error(`Not enough tokens: your balance is ${amount} AGT`);
+        }
+
+        if (ownNfts) {
+            throw new Error('You already own this NFT');
         }
 
         const nonce = await this.web3.eth.getTransactionCount(wallet.address);
