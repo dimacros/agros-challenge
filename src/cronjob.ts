@@ -3,7 +3,12 @@ import { AgrosSalesProxy } from './utils/AgrosSalesProxy';
 import { env } from './env';
 import { prisma } from './prisma';
 
-const agenda = new Agenda({ db: { address: env.DATABASE_URL } });
+const agenda = new Agenda({ 
+    db: { 
+        address: env.DATABASE_URL 
+    },
+    ensureIndex: true,
+});
 
 agenda.define('autotask: verify producers', async () => {
 
@@ -12,27 +17,40 @@ agenda.define('autotask: verify producers', async () => {
 agenda.define<{ 
     producerId: string, 
     privateKey: string,
+    txHash: string
 }>('purchase associated nft', async job => {
-    const { producerId, privateKey } = job.attrs.data;
-    
+    let { producerId, privateKey } = job.attrs.data;
+
     const agrosSales = new AgrosSalesProxy(privateKey);
 
-    const receipt = await agrosSales.purchaseAssociateNFT();
+    try {
+        let receipt = await agrosSales.purchaseAssociateNFT();
 
-    if (receipt.status) {
-        await prisma.producer.update({
+        await job.touch(50);
+
+        job.attrs.data.txHash = receipt.transactionHash;
+
+        receipt.status && await prisma.producer.update({
             where: { id: producerId },
             data: { associatedAt: new Date() }
         });
+
+        await job.touch(100);
+    } catch (e) {
+        console.error(e);
+        job.schedule('1 minute');
+        job.fail(e as Error);
     }
+
+    await job.save();
 });
 
-agenda.on('success:purchase associated nft', _ => {
-    console.log('Purchase associated NFT success');
+agenda.on('start:purchase associated nft', _ => {
+    console.log('Job started');
 });
 
-agenda.on('fail:purchase associated nft', (err: Error, _: Job) => {
-	console.log(`Job failed with error: ${err.message}`);
+agenda.on('complete:purchase associated nft', _ => {
+	console.log(`Job finished`);
 });
 
 export const cronjob = agenda;

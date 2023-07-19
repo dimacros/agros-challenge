@@ -36,7 +36,7 @@ export class ProducerController {
         return producers;
     }
 
-    async becomeAssociate(id: string): Promise<{ status: string }> {
+    async becomeAssociate(id: string) {
         let producer = await this.producerRepo.findUnique({
             where: { id }
         });
@@ -49,7 +49,22 @@ export class ProducerController {
             throw new Error("Producer already associated");
         }
 
-        cronjob.now('purchase associated nft', { 
+        const jobs = await cronjob.jobs({ 
+            name: 'purchase associated nft',
+            data: {
+                producerId: producer.id,
+                privateKey: producer.privateKey
+            }
+        });
+
+        const tasks = jobs.map(job => () => job.isRunning());
+        const runningJobs = await Promise.all(tasks.map(x => x()));
+
+        if (runningJobs.some(x => x)) {
+            return { status: "already processed" };
+        }
+
+        await cronjob.now('purchase associated nft', { 
             producerId: producer.id, 
             privateKey: producer.privateKey
         });
