@@ -61,5 +61,9 @@ Now, you can try the endpoints:
 ## Testing
 `npx hardhat test`
 
+Output of gas reporter:
+
+![Gas Reporter](resources/gas_reporter.png)
+
 ## Deploy
 `npx hardhat run scripts/deploy.ts --network testnet` 

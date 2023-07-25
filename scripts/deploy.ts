@@ -4,6 +4,7 @@ import { deployAgrosSales, deployAgrosToken } from '../solidity/utils';
 async function main() {
     const MINTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MINTER_ROLE"));
     const BURNER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("BURNER_ROLE"));
+    const VERIFIER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("VERIFIER_ROLE"));
 
     const AgrosTokenProxy = await deployAgrosToken();
     const AgrosSalesProxy = await deployAgrosSales({
@@ -17,20 +18,13 @@ async function main() {
     ]);
 
     if (ethers.isAddress(process.env.RELAYER_ADDRESS)) {
-        await AgrosSalesProxy.transferOwnership(process.env.RELAYER_ADDRESS);
+        await AgrosSalesProxy.grantRole(VERIFIER_ROLE, process.env.RELAYER_ADDRESS);
     }
-
-    const [AgrosTokenAddress, AgrosSalesAddress] = await Promise.all([
-        upgrades.erc1967.getImplementationAddress(AgrosTokenProxy.target as string),
-        upgrades.erc1967.getImplementationAddress(AgrosSalesProxy.target as string),
-    ]);
 
     // Print addresses
     console.table({
         AgrosTokenProxy: AgrosTokenProxy.target,
-        AgrosTokenImplementation: AgrosTokenAddress,
         AgrosSalesProxy: AgrosSalesProxy.target,
-        AgrosSalesImplementation: AgrosSalesAddress,
     });
 }
 

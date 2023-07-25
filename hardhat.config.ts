@@ -23,6 +23,13 @@ const config: HardhatUserConfig = {
       accounts: [process.env.METAMASK_PRIVATE_KEY || ''],
     },
   },
+  gasReporter: {
+    currency: 'USD',
+    gasPriceApi: 'https://api.polygonscan.com/api?module=proxy&action=eth_gasPrice',
+    token: 'MATIC',
+    enabled: true,
+    showTimeSpent: true,
+  },
   etherscan: {
     apiKey: {
       polygon: process.env.POLYGON_ETHERSCAN_API_KEY || '',

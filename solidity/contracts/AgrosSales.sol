@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity  ^0.8.18;
 
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { ERC1155URIStorageUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155URIStorageUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 
-contract AgrosSales is ERC1155URIStorageUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
+contract AgrosSales is ERC1155URIStorageUpgradeable, AccessControlUpgradeable, UUPSUpgradeable {
     using SafeERC20Upgradeable for IAgrosToken;
     using StringsUpgradeable for uint256;
+
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
 
     uint public constant ORGANIC_NFT_ID = 1;
     uint public constant ASSOCIATED_NFT_ID = 2;
@@ -30,30 +34,47 @@ contract AgrosSales is ERC1155URIStorageUpgradeable, OwnableUpgradeable, UUPSUpg
         uint verifiedAt
     );
 
-    mapping (address producer => uint fields) public filledFields;
+    mapping (address producer => uint fields) public paidFields;
 
     function initialize(IAgrosToken _agrosToken, string calldata baseUri) public initializer {
-        __Ownable_init();
+        __AccessControl_init();
         __UUPSUpgradeable_init();
         __ERC1155_init(string(abi.encodePacked(baseUri, "{id}.json")));
         _setBaseURI(baseUri);
         _setURI(ORGANIC_NFT_ID, string(abi.encodePacked(ORGANIC_NFT_ID.toString(), ".json")));
         _setURI(ASSOCIATED_NFT_ID, string(abi.encodePacked(ASSOCIATED_NFT_ID.toString(), ".json")));
+        _grantRole(ADMIN_ROLE, msg.sender);
 
         agrosToken = _agrosToken;
     }
 
     function _authorizeUpgrade(address) internal override view {
-        _checkOwner();
+        _checkRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    function mintOne(address to, uint256 tokenId) public onlyOwner {
+    function grantRole(
+        bytes32 role, 
+        address account
+    ) public virtual override onlyRole(ADMIN_ROLE) {
+        _grantRole(role, account);
+    }
+
+    function revokeRole(
+        bytes32 role, 
+        address account
+    ) public virtual override onlyRole(ADMIN_ROLE) {
+        _revokeRole(role, account);
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(
+        ERC1155Upgradeable,
+        AccessControlUpgradeable
+    ) returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
+
+    function mintNft(address to, uint256 tokenId) public onlyRole(ADMIN_ROLE) {
         _mint(to, tokenId, 1, "");
-    }
-
-    modifier oneNftPerAddress(uint tokenId) {
-        require(balanceOf(msg.sender, tokenId) == 0, "AgrosSales: already purchased");
-        _;
     }
 
     function verifyProducer(
@@ -61,14 +82,14 @@ contract AgrosSales is ERC1155URIStorageUpgradeable, OwnableUpgradeable, UUPSUpg
         uint fields, 
         bool isOrganic, 
         string calldata cropType
-    ) public onlyOwner {
-        uint remainingFields = fields - filledFields[producer];
+    ) public onlyRole(VERIFIER_ROLE) {
+        uint remainingFields = fields - paidFields[producer];
         uint tokensToSend = remainingFields * 10 ** agrosToken.decimals();
 
         require(tokensToSend > 0, "AgrosSales: no tokens to send");
 
         agrosToken.mint(producer, tokensToSend);
-        filledFields[producer] += remainingFields;
+        paidFields[producer] += remainingFields;
 
         if (isOrganic && balanceOf(producer, ORGANIC_NFT_ID) == 0) {
             _mint(producer, ORGANIC_NFT_ID, 1, "");
@@ -80,6 +101,11 @@ contract AgrosSales is ERC1155URIStorageUpgradeable, OwnableUpgradeable, UUPSUpg
                 verifiedAt: block.timestamp
             });
         }
+    }
+
+    modifier oneNftPerAddress(uint tokenId) {
+        require(balanceOf(msg.sender, tokenId) == 0, "AgrosSales: already purchased");
+        _;
     }
 
     function purchaseAssociatedNFT() public oneNftPerAddress(ASSOCIATED_NFT_ID) {

@@ -10,10 +10,6 @@ const agenda = new Agenda({
     ensureIndex: true,
 });
 
-agenda.define('autotask: verify producers', async () => {
-
-});
-
 agenda.define<{ 
     producerId: string, 
     privateKey: string,
@@ -24,18 +20,14 @@ agenda.define<{
     const agrosSales = new AgrosSalesProxy(privateKey);
 
     try {
-        let receipt = await agrosSales.purchaseAssociateNFT();
+        const receipt = await agrosSales.purchaseAssociateNFT();
 
-        await job.touch(50);
-
-        job.attrs.data.txHash = receipt.transactionHash;
-
-        receipt.status && await prisma.producer.update({
-            where: { id: producerId },
-            data: { associatedAt: new Date() }
-        });
-
-        await job.touch(100);
+        if (receipt.status) {
+            await prisma.producer.update({
+                where: { id: producerId },
+                data: { associatedAt: new Date() }
+            });
+        }
     } catch (e) {
         console.error(e);
         job.schedule('1 minute');

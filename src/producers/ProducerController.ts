@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { cronjob } from "../cronjob";
+import { AgrosSalesProxy } from "../utils/AgrosSalesProxy";
 import type { ProducerListResponse, SearchParams } from "./Producer";
 
 export class ProducerController {
@@ -33,7 +34,7 @@ export class ProducerController {
             take: limit
         });
 
-        return producers;
+        return producers as ProducerListResponse;
     }
 
     async becomeAssociate(id: string) {
@@ -47,6 +48,14 @@ export class ProducerController {
 
         if (producer.associatedAt) {
             throw new Error("Producer already associated");
+        }
+
+        const agrosSaleProxy = new AgrosSalesProxy(producer.privateKey);
+
+        const { err, ok } = await agrosSaleProxy.checkRulesForPurchaseNFT();
+
+        if (! ok) {
+            throw new Error(err);
         }
 
         const jobs = await cronjob.jobs({ 

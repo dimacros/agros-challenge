@@ -3,69 +3,78 @@ import { AgrosSalesAbi, AgrosTokenAbi } from '../abi';
 import { env } from "../env";
 
 export class AgrosSalesProxy {
-    private wallet;
+    private signer;
     private web3;
     private agrosSaleSC;
     private agrosTokenSC;
 
     constructor(privateKey: string) {
         this.web3 = new Web3(env.WEB3_PROVIDER_URL);
-        this.wallet = this.web3.eth.accounts.privateKeyToAccount(privateKey);
-        this.web3.eth.accounts.wallet.add(this.wallet);
+        this.web3.eth.accounts.wallet.add(privateKey);
+
+        this.signer = this.web3.eth.accounts.wallet[0].address;
 
         const options = {
-            from: this.wallet.address,
+            from: this.signer,
         }
 
-        this.agrosSaleSC = new this.web3.eth.Contract(
+        const agrosSale = new this.web3.eth.Contract(
             AgrosSalesAbi, 
             env.AGROS_SALES_ADDRESS,
             options
         );
 
-        this.agrosTokenSC = new this.web3.eth.Contract(
+        const agrosToken = new this.web3.eth.Contract(
             AgrosTokenAbi, 
             env.AGROS_TOKEN_ADDRESS,
             options
         );
+
+        this.agrosSaleSC = agrosSale.methods;
+        this.agrosTokenSC = agrosToken.methods;
     }
 
     getEvents() {
         return this.agrosSaleSC.events;
     }
 
-    async purchaseAssociateNFT() {
-        const { wallet, agrosTokenSC, agrosSaleSC } = this;
-        const { balanceOf } = agrosTokenSC.methods;
-        const { ASSOCIATED_NFT_ID, balanceOf: nftCount, purchaseAssociatedNFT } = agrosSaleSC.methods;
+    async checkRulesForPurchaseNFT() {
+        const { signer, agrosTokenSC, agrosSaleSC } = this;
 
-        const associateNftId = await ASSOCIATED_NFT_ID().call<bigint>();
-        const tokens = await this.web3.eth.getBalance(wallet.address);
-        const agrosTokens = await balanceOf(wallet.address).call<bigint>();
-        const ownNfts = await nftCount(wallet.address, associateNftId).call<boolean>();
+        const result = { err: '', ok: true };
+        const associateNftId = await agrosSaleSC.ASSOCIATED_NFT_ID().call();
+        const tokens = await this.web3.eth.getBalance(signer);
+        const agrosTokens = await agrosTokenSC.balanceOf(signer).call<bigint>();
+
+        const ownNfts = await agrosSaleSC.balanceOf(signer, associateNftId).call();
         const nftPrice = utils.toBigInt(utils.toWei(8, 'ether'));
 
         if (tokens < 100000) {
-            throw new Error(`Not enough ether: your balance is ${tokens} wei`);
+           return { err: `Not enough ether: your balance is ${tokens} wei`, ok: false };
         }
 
         if (agrosTokens < nftPrice) {
             const amount = utils.fromWei(tokens, 'ether');
 
-            throw new Error(`Not enough tokens: your balance is ${amount} AGT`);
+           return { err: `Not enough tokens: your balance is ${amount} AGT`, ok: false };
         }
 
         if (ownNfts) {
-            throw new Error('You already own this NFT');
+           return { err: 'You already own this NFT', ok: false };
         }
 
-        const nonce = await this.web3.eth.getTransactionCount(wallet.address);
-        const receipt = await purchaseAssociatedNFT().send({
+        return result;
+    }
+
+    async purchaseAssociateNFT() {
+        const { signer, agrosSaleSC } = this;
+
+        const nonce = await this.web3.eth.getTransactionCount(signer);
+
+        return agrosSaleSC.purchaseAssociatedNFT().send({
             gas: '100000',
             gasPrice: utils.toWei('1', 'gwei'),
             nonce: utils.toHex(nonce),
         });
-
-        return receipt;
     }
 }

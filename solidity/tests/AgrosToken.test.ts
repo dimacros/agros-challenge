@@ -1,36 +1,29 @@
 import { expect } from "chai";
-import { ethers, upgrades } from "hardhat";
+import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { deployAgrosToken } from "../utils";
 import type { AgrosToken } from "../types";
 
 describe("AgrosToken", function () {
   const MINTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MINTER_ROLE"));
   const BURNER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("BURNER_ROLE"));
 
+  const AccessControlError = 'AccessControl: account (0x[0-9a-f]{40}) is missing role (0x[0-9a-f]{64})';
+
   async function deployAgrosTokenFixture() {
     const [owner, producer] = await ethers.getSigners();
 
-    const AgrosTokenImpl = await ethers.getContractFactory('AgrosToken');
-    const AgrosTokenProxy = await upgrades.deployProxy(AgrosTokenImpl, {
-        kind: 'uups',
-        initializer: 'initialize',
-        redeployImplementation: 'onchange',
-    });
-
-    await AgrosTokenProxy.waitForDeployment();
-
+    const AgrosTokenProxy = await deployAgrosToken();
     const AgrosToken = AgrosTokenProxy.connect(owner) as AgrosToken;
 
     return { AgrosToken, owner, producer };
   }
 
-  it('Non-administrator account cannot upgrade contract', async function () {
+  it('non-admin cannot upgrade contract', async function () {
     const { AgrosToken, producer } = await loadFixture(deployAgrosTokenFixture);
 
-    const err = 'AccessControl: account (0x[0-9a-f]{40}) is missing role (0x[0-9a-f]{64})';
-
-    await expect(AgrosToken.connect(producer).upgradeTo(ethers.ZeroAddress))
-              .to.be.revertedWith(new RegExp(err));
+    expect(AgrosToken.connect(producer).upgradeTo(ethers.ZeroAddress))
+      .to.be.revertedWith(new RegExp(AccessControlError));
   });
 
   it("account without MINTER_ROLE cannot mint tokens", async function () {
@@ -39,7 +32,7 @@ describe("AgrosToken", function () {
     const account = owner.address.toLocaleLowerCase();
     const err = `AccessControl: account ${account} is missing role ${MINTER_ROLE}`;
 
-    await expect(AgrosToken.mint(producer.address, 8)).to.revertedWith(err);
+    expect(AgrosToken.mint(producer.address, 8)).to.revertedWith(err);
   });
 
   it("account with MINTER_ROLE can mint tokens", async function () {
@@ -58,8 +51,8 @@ describe("AgrosToken", function () {
 
     await AgrosToken.grantRole(MINTER_ROLE, owner.address);
 
-    await expect(AgrosToken.mint(ethers.ZeroAddress, 1))
-            .to.revertedWith("ERC20: mint to the zero address");
+    expect(AgrosToken.mint(ethers.ZeroAddress, 1))
+      .to.revertedWith("ERC20: mint to the zero address");
   });
 
   it("account without BURNER_ROLE cannot burn tokens", async function () {
@@ -69,10 +62,10 @@ describe("AgrosToken", function () {
     const err = `AccessControl: account ${account} is missing role ${BURNER_ROLE}`;
     const burnTask = () => AgrosToken.burn(producer.address, 8);
 
-    await expect(burnTask()).to.revertedWith(err);
+    expect(burnTask()).to.revertedWith(err);
   });
 
-  it ("account with BURNER_ROLE can burn tokens", async function () {
+  it("account with BURNER_ROLE can burn tokens", async function () {
     const { AgrosToken, owner, producer } = await loadFixture(deployAgrosTokenFixture);
 
     await Promise.all([
@@ -88,12 +81,12 @@ describe("AgrosToken", function () {
     expect(balance).to.equal(0);
   });
 
-  it ("account with BURNER_ROLE cannot be burned to invalid address", async function () {
-    const { AgrosToken, owner, producer } = await loadFixture(deployAgrosTokenFixture);
+  it("account with BURNER_ROLE cannot be burned to invalid address", async function () {
+    const { AgrosToken, owner } = await loadFixture(deployAgrosTokenFixture);
 
     await AgrosToken.grantRole(BURNER_ROLE, owner.address);
 
-    expect(AgrosToken.burn(producer.address, 1))
+    expect(AgrosToken.burn(ethers.ZeroAddress, 1))
       .to.revertedWith("ERC20: burn from the zero address");
   });
 });

@@ -5,6 +5,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "nodemon -w 'src/**/*' -e ts -x 'ts-node src/server.ts'",
+    "migrate:seed": "ts-node scripts/seed_data.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

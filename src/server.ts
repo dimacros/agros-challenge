@@ -20,8 +20,8 @@ fastify.get<{
   const controller = new ProducerController(prisma.producer);
 
   const response = await controller.getProducers({
-    start: start ? new Date(start as string) : null,
-    end: end ? new Date(end as string) : null,
+    start: start ? new Date(start as string) : undefined,
+    end: end ? new Date(end as string) : undefined,
     page: page ? Number(page) : 1,
     limit: limit ? Number(limit) : 10
   });
